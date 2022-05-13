@@ -27,13 +27,13 @@ public class MapperTest {
     @Autowired
     private MessageMapper messageMapper;
 
-    @Test
-    public void testSelectPosts(){
-        List<DiscussPost> list = discussPostMapper.selectDiscussPosts(0,0,10);
-        for(DiscussPost post : list){
-            System.out.println(post);
-        }
-    }
+//    @Test
+//    public void testSelectPosts(){
+//        List<DiscussPost> list = discussPostMapper.selectDiscussPosts(0,0,10);
+//        for(DiscussPost post : list){
+//            System.out.println(post);
+//        }
+//    }
 
     @Test
     public void testInsertLoginTicket() {

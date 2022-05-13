@@ -1,5 +1,8 @@
 package com.nowcoder.community.controller;
 
+import com.aliyun.oss.OSS;
+import com.aliyun.oss.model.PutObjectRequest;
+import com.aliyun.oss.model.PutObjectResult;
 import com.nowcoder.community.annotation.LoginRequired;
 import com.nowcoder.community.entity.User;
 import com.nowcoder.community.service.FollowService;
@@ -25,6 +28,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.HashMap;
 import java.util.Map;
 
 @Controller
@@ -54,6 +58,15 @@ public class UserController implements CommunityConstant {
     @Autowired
     private FollowService followService;
 
+    @Autowired
+    private OSS ossClient;
+
+    @Value ("${aliyun.bucket-name}")
+    private String bucketName;
+
+    @Value("${aliyun.endpoint}")
+    private String endpoint;
+
     //跳转到设置页面
     @LoginRequired
     @RequestMapping(path = "/setting", method = RequestMethod.GET)
@@ -62,7 +75,7 @@ public class UserController implements CommunityConstant {
     }
 
     //上传头像
-    @LoginRequired
+    /*@LoginRequired
     @RequestMapping(path = "/upload", method = RequestMethod.POST)
     public String uploadHeader(MultipartFile headerImage, Model model){
         if(headerImage == null){
@@ -96,6 +109,51 @@ public class UserController implements CommunityConstant {
         userService.updateHeader(user.getId(), headerUrl);
 
         return "redirect:/index";
+    }*/
+    @LoginRequired
+    @RequestMapping(path = "/upload",method = RequestMethod.POST)
+    public String uploadHeader(MultipartFile headerImage, Model model){
+        if(headerImage==null){
+            model.addAttribute("error","你还没有选择图片");
+            return "/site/setting";
+        }
+
+        String filename = headerImage.getOriginalFilename();
+        if(filename==null){
+            model.addAttribute("error","图片名错误");
+            return "/site/setting";
+        }
+        String suffix = filename.substring(filename.lastIndexOf("."));
+        if(StringUtils.isBlank(suffix)){
+            model.addAttribute("error","文件格式不正确");
+            return "/site/setting";
+        }
+        //生成随机文件名
+        filename = CommunityUtil.generateUUID() + suffix;
+//        File dest = new File(uploadPath+"/"+filename);
+        filename = "header/" + filename;
+        try {
+//            headerImage.transferTo(dest);
+            PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, filename,headerImage.getInputStream());
+            Map<String, String> map = new HashMap<>();
+            //设置为公开读可见
+            map.put("x-oss-object-acl","public-read");
+            putObjectRequest.setHeaders(map);
+            PutObjectResult putResult = ossClient.putObject(putObjectRequest);
+        } catch (IOException e) {
+            logger.error("上传文件失败："+e.getMessage());
+            throw new RuntimeException("上传文件失败，服务器发生异常！",e);
+        } finally {
+            ossClient.shutdown();
+        }
+        //更新当前头像路径
+        User user = hostHolder.getUser();
+//        String headerUrl = getUrl(filename);
+        String headerUrl = "https://" + bucketName + "." + endpoint + "/" + filename;
+//        String headerUrl = domain + contextPath + "/user/header/" + filename;
+        int i = userService.updateHeader(user.getId(), headerUrl);
+        System.out.println(i);
+        return "redirect:/index";
     }
 
     @RequestMapping(path = "/header/{fileName}", method = RequestMethod.GET)
@@ -121,7 +179,7 @@ public class UserController implements CommunityConstant {
     }
 
     //修改密码
-    @RequestMapping(path = "/updatePassword", method = RequestMethod.POST)
+    /*@RequestMapping(path = "/updatePassword", method = RequestMethod.POST)
     public String updatePassword(String oldPassword, String newPassword, Model model){
         User user = hostHolder.getUser();
         Map<String, Object> map = userService.updatePassword(user.getId(), oldPassword, newPassword);
@@ -132,7 +190,7 @@ public class UserController implements CommunityConstant {
             model.addAttribute("newPasswordMsg", map.get("newPasswordMsg"));
             return "/site/setting";
         }
-    }
+    }*/
 
     // 个人主页
     @RequestMapping(path = "/profile/{userId}", method = RequestMethod.GET)
